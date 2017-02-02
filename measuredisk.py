@@ -20,23 +20,9 @@ import os
 # Used to determine the os type and for getruntime.
 import nonportable
 
-# Get the ctypes stuff so we can call libc.sync() instead of using subprocces.
-# We want to do all the importing and such here so that it doesn't muck with
-# the timing.  These things don't seem to be available on Windows, so we will
-# only import them where we need them (Linux)
-# Anthony - found this descriptions of libc.sync at
-# http://www.delorie.com/djgpp/doc/libc/libc_798.html
-# Intended to assist porting Unix programs. Under Unix, sync flushes all caches
-# of previously written data. In this implementation, sync calls fsync on every 
-# open file. See section fsync. It also calls _flush_disk_cache (see 
-# section _flush_disk_cache) to try to force cached data to the disk.
-if nonportable.osrealtype == 'Linux':
-  import ctypes
-  import ctypes.util
-  libc = ctypes.CDLL(ctypes.util.find_library("c"))
 
 
-def measure_write(write_file_obj, blocksize, totalbytes, use_sync=False):
+def measure_write(write_file_obj, blocksize, totalbytes):
   """
   <Purpose>
     Attempts to measure the disk write rate by writing totalbytes bytes to a
@@ -52,9 +38,6 @@ def measure_write(write_file_obj, blocksize, totalbytes, use_sync=False):
     
     totalbytes - The total number of bytes that should be written for the test.
 
-    use_sync - Set to True if sync should be used to make sure the data is
-               actually written to disk.  Should not be set to True on
-               Windows because sync does not exist there.  Defaults to False.
 
   <Side Effects>
     Creates a file of size totalbytes.
@@ -76,10 +59,6 @@ def measure_write(write_file_obj, blocksize, totalbytes, use_sync=False):
  
   for trial in range(0, totalbytes, blocksize):
     write_file_obj.write(' ' * blocksize)
-    #write_file_obj.flush()
-    #if use_sync:
-    #  # Only use sync if it is requested. See comment at import for explanation.
-    #  libc.sync()
 
   write_file_obj.flush()
   end_time = nonportable.getruntime()
@@ -177,15 +156,7 @@ def main():
   pid = os.getpid()
   write_file_obj = open('rate_measure.'+str(pid), 'w')
   try:    
-    # On linux sync needs to be run, otherwise it returns values an order of
-    # magnitude too large.
-    if nonportable.osrealtype == 'Linux':
-      # Anthony - I have not been able to measure the benefit of using
-      # 'libc' on a linux system, until I am able explore the linux
-      # specific advantage of performing this we will not use it.
-      write_rate = measure_write(write_file_obj, blocksize, totalbytes, False)
-    else:
-      write_rate = measure_write(write_file_obj, blocksize, totalbytes)
+    write_rate = measure_write(write_file_obj, blocksize, totalbytes)
       
     write_file_obj.close()
   
