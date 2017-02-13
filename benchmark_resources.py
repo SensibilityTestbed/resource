@@ -465,7 +465,7 @@ def get_tenpercent_of_donated(donatedresources):
 
 
 
-def main(prog_path, resource_percent, logfileobj):
+def main(prog_path, resource_percent, logfileobj, overrides):
   """
   <Purpose>
     To run the benchmarks and use the writecustominstaller to create
@@ -480,6 +480,13 @@ def main(prog_path, resource_percent, logfileobj):
         
     logfileobj: The open file object that will be used for logging
         the benchmark process and the creation of the installer state.
+
+    overrides: A `Namespace` object as returned from argparse.parse_args.
+        This might contain overrides for benchmarked values that the
+        user supplied on the command line, e.g. "--diskused 100000000".
+        This allows for more fine-grained control over donations, and
+        lets us work around problems with system tools that are hard
+        to fix otherwise, e.g. Android's inconsistent `df` versions.
     
   <Exceptions>
     InsufficientResourceError: Exception to indicate that there was
@@ -539,13 +546,33 @@ def main(prog_path, resource_percent, logfileobj):
     vesselinfodata.close()
     raise
   
-  max_resources_dict = run_benchmark(logfileobj)  
+  max_resources_dict = run_benchmark(logfileobj)
+
+  # Update the benchmarked values with user overrides from the installer's
+  # command-line arguments (if any).
+  # Flags that seattleinstaller's argument parser knows about but which the
+  # user didn't specify contain `None`, i.e. don't override their resource.
+  # For resources for which no parser flags exist, print a notification.
+  for resource in max_resources_dict.keys():
+    try:
+      resource_override = getattr(overrides, resource)
+      if resource_override is None:
+        continue
+    except AttributeError:
+      print "Developers, please note:"
+      print "  Resource '" + resource + "' has no override flag."
+      continue
+    # If we end up here, there is an active override for this resource
+    logfileobj.write("Overriding resource '" + resource + "' from its " +
+        "benchmarked value of '" + str(max_resources_dict[resource]) +
+        "' to '" + str(resource_override) + "' from the command line.\n")
+    max_resources_dict[resource] = resource_override
   
   # I am logging the percentage that should donated to make it easier
   # to track down the cause of exceptions related to resource splitting.
   logfileobj.write("User intended to donate :" + str(resource_percent) + \
                    " percent.\n")
-  
+
   # Take the max resources and get the donated resources.
   donatedresources = get_donated_from_maxresources(max_resources_dict, 
                                                    resource_percent)
