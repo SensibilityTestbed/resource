@@ -333,23 +333,8 @@ def run_benchmark(logfileobj):
 
     if not is_android:
       continue_install = prompt_user("Continue with installation? (yes/no) ")
-
-    # AR: This pops up the actual dialog on the screen on Android 
     else:
-      droid = android.Android()
-      droid.dialogCreateAlert("Benchmarking error(s) occurred",
-        "If you choose to continue, then default values will be used for failed benchmarks.")
-      droid.dialogSetPositiveButtonText("Continue")
-      droid.dialogSetNegativeButtonText("Cancel")
-      droid.dialogShow()
-      response = droid.dialogGetResponse().result
-      droid.dialogDismiss()
-      if response.has_key("which"):
-        result = response["which"]
-        if result == "positive":
-          continue_install = True
-        else:
-          continue_install = False
+      continue_install = True
 
     if not continue_install:
       logfileobj.write("Installation terminated by user after one or " + \
